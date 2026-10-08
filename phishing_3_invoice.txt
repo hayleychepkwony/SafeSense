@@ -1,0 +1,8 @@
+From: Accounts <billing@docs-share.example.org>
+Subject: Invoice attached
+
+Hello,
+
+Please find the overdue invoice attached: Invoice_88231.zip
+
+If you cannot open it, view it online at http://203.0.113.45/invoice/view

@@ -1,0 +1,14 @@
+From: "PayPal Support" <service@paypa1-secure.example.com>
+Reply-To: help@mail-collector.example.net
+Subject: Security alert: your account will be suspended
+
+Dear customer,
+
+We noticed unusual activity on your account. Your account will be suspended
+within 24 hours unless you verify your identity immediately.
+
+<a href="http://paypa1-secure.example.com/verify/login?id=88213">https://www.paypal.com/verify</a>
+
+Please enter your password and card number to restore access.
+
+PayPal Security Team
