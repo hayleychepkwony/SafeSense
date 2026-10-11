@@ -1,111 +1,91 @@
-# SafeSense
+# SafeSense: Phishing Detection System
 
-An explainable phishing checker. Paste a suspicious email, text message or link, and SafeSense gives it a risk level **and tells you why**, so people learn what to look for instead of just getting a yes/no answer.
+Paste a suspicious email, text message or link, and SafeSense tells you how risky it is **and why**. A rules engine and a machine-learning classifier each score the message, and the two are blended into one risk level with a plain-English explanation of every warning sign.
 
-> Personal learning project. It is a rule-based helper, not a replacement for a professional email security product.
+![SafeSense home](docs/home.png)
 
-## What it checks
+![A phishing email flagged as high risk](docs/result-phishing.png)
 
-| Area | Examples |
+## How it works
+
+| Layer | What it does |
 |---|---|
-| **Links** | look-alike spelling (`paypa1.com`, `rnicrosoft.com`), brand names on unofficial domains, raw IP addresses, `@` tricks, punycode, URL shorteners, odd domain endings, very long subdomain chains, missing HTTPS |
-| **Sender** | display name pretending to be a brand, sender domain imitating a brand, `Reply-To` pointing somewhere else |
-| **HTML links** | link text shows one website but the link goes to another |
-| **Wording** | pressure to act fast, account-suspension threats, requests for passwords / PIN / OTP / card details, surprise prizes, generic greetings |
-| **Attachments** | file types that commonly carry malware (`.exe`, `.zip`, `.js`, macro Office files, etc.) |
+| **Rules engine** | Inspects links (look-alike spelling like `paypa1.com`, brand names on unofficial domains, raw IPs, `@` tricks, punycode, URL shorteners, odd endings), the sender (display-name spoofing, `Reply-To` mismatch), HTML links whose text and destination differ, risky attachments, and pressure or credential-harvesting wording. |
+| **ML classifier** | A scikit-learn pipeline (TF-IDF word and bigram features + logistic regression) that estimates the probability a message is phishing, and surfaces the words that influenced it. |
+| **Verdict** | `final score = 0.6 × rules + 0.4 × ML probability`, mapped to **LOW** (0-19), **MEDIUM** (20-49) or **HIGH** (50+). |
 
-Each finding adds points. The total (capped at 100) becomes **LOW** (0-19), **MEDIUM** (20-49) or **HIGH** (50+), and every finding includes the evidence and a plain-English tip on what to check.
+![A normal email scored low](docs/result-safe.png)
 
-## Quick start
+## Tech stack
 
-Requires Python 3.9+. No packages to install.
+Python · Flask · scikit-learn · joblib · vanilla JavaScript front end (canvas animation, no framework)
+
+## Run it locally
+
+Requires Python 3.9 or newer.
 
 ```bash
-# Check a file
+pip install -r requirements.txt
+python app.py
+```
+
+Open **http://127.0.0.1:5000**. Use the example buttons, or paste your own message.
+
+### Command line
+
+```bash
 python -m safesense samples/phishing_1_paypal.txt
-
-# Check text from the clipboard / another command
 echo "http://bit.ly/claim-prize" | python -m safesense -
-
-# Machine-readable output
 python -m safesense samples/phishing_2_prize.txt --json
-
-# Local web page at http://127.0.0.1:8000 (nothing leaves your computer)
-python -m safesense.web
 ```
 
-### Example output
+### API
 
-```
-SafeSense report
-Risk level: HIGH   (score 100/100)
-
-Why:
- 1. [+35] Link imitates 'paypal' with look-alike spelling
-      Evidence: paypa1-secure.example.com
-      What to check: Letters were swapped for similar-looking ones...
- 2. [+25] Sender name says 'PayPal Support' but the address is not from paypal
- 3. [+25] The link text shows one website but the link goes to another
-      Evidence: shows www.paypal.com -> goes to paypa1-secure.example.com
- 4. [+18] Replies would go to a different domain than the sender (reply-to)
- ...
+```bash
+curl -X POST http://127.0.0.1:5000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Your account has been suspended. Verify your password now."}'
 ```
 
-A normal message scores low:
+Returns `score`, `level`, `rule_score`, `ml_probability`, `ml_signals`, `urls` and a list of `findings`, each with evidence and advice.
 
-```
-Risk level: LOW   (score 0/100)
-No warning signs were found by the current rules.
-```
+## Deploy it
+
+The repo includes a `Procfile` and `render.yaml`, so it can run on any Python host. On [Render](https://render.com): **New → Web Service**, connect the repo, and it picks up the settings automatically (free plan works).
 
 ## Project structure
 
 ```
+app.py                 Flask app and /api/analyze endpoint
 safesense/
-  checks.py     the rules and scoring (start here)
-  cli.py        command-line interface
-  web.py        small local web page (standard library only)
-samples/        example phishing and legitimate messages (fake, safe to open)
-tests/          unit tests
+  checks.py            rules engine
+  ml.py                model training and prediction
+  engine.py            blends rules + ML into the final verdict
+  cli.py               command-line interface
+templates/ static/     web interface
+data/                  labelled sample dataset + build script
+models/                trained model (phish_model.joblib)
+samples/               example messages (all fake, safe to open)
+tests/                 25 unit and API tests
 ```
 
-## Run the tests
+## Retrain the model
+
+```bash
+python data/build_dataset.py     # regenerate data/messages.csv
+python -m safesense.ml           # train and save models/phish_model.joblib
+```
+
+## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## How the look-alike detection works
+## Limitations
 
-Hostnames are normalised (`1`→`l`, `0`→`o`, `rn`→`m`, `vv`→`w`) and compared with a list of known brands. If a brand only appears *after* normalising, the domain is imitating it. Short brand names such as `apple` must be a whole word, so `pineapple-recipes.com` is not flagged. The brand list is in `checks.py` and is easy to extend, for example with local banks.
-
-## Limitations (please read)
-
-- **Rule-based, not machine learning.** It catches common, known tricks. A carefully written phishing message that avoids them can score low.
-- **A LOW score is not a guarantee of safety.** Always verify unexpected requests through a channel you already trust.
-- **Small brand list** and a simplified way of finding the registered domain (it does not use the full Public Suffix List).
-- **English-language wording only.** Phrase lists are in English.
-- It does not open links, scan attachments or check domain age or reputation.
-- Scores and thresholds are judgement-based and have not been validated on a large real-world dataset.
-
-## Safety and ethics
-
-- Everything runs locally; no message content is sent anywhere.
-- All sample domains use reserved test domains (`example.com`, `example.net`) or documentation IP ranges, and no live phishing links.
-- This is a defensive tool for awareness and education.
-
-## Ideas for next steps
-
-- Check domain age and reputation through an optional lookup
-- Parse real `.eml` files and full email headers (SPF / DKIM / DMARC results)
-- Add Swahili and other languages to the phrase lists
-- Measure accuracy on a public labelled dataset and report precision / recall
-- Browser extension front-end
-
-## Author
-
-Hayley Chepkemoi: Cybersecurity & Technical Virtual Assistant. [Portfolio](https://hayleychepkwony.github.io)
-
-## License
-
-MIT, see [LICENSE](LICENSE).
+- The model is trained on a **small bundled sample dataset** of generated messages, so it recognises common phishing wording but has not been validated on large real-world data. Swapping in a public labelled phishing corpus is the main next step.
+- The rules cover well-known tricks; a carefully written message that avoids them can score low. **A low score does not prove a message is safe.**
+- Brand list and domain parsing are simplified, wording rules are English only, and links and attachments are not opened or scanned.
+- Messages are analysed in memory and are not stored.
+- All sample domains use reserved test domains (`example.com`, `example.net`) or documentation IP ranges.

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SafeSense · Phishing Detection System</title>
+  <meta name="description" content="Paste an email, message or link and SafeSense tells you how risky it is, and why.">
+  <meta name="theme-color" content="#070a12">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 3l11 4v8c0 7-4.600 12.200-11 14C9.600 27.200 5 22 5 15V7l11-4z' fill='%2306101c' stroke='%2338e0ff' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<canvas id="bg" aria-hidden="true"></canvas>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="vignette" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="logo">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3l11 4v8c0 7-4.6 12.2-11 14C9.6 27.200 5 22 5 15V7l11-4z"/><path d="M11 16l3.500 3.500L21.500 12"/></svg>
+    <span>SafeSense</span>
+  </div>
+  <div class="pill"><span class="live"></span> Detection engine online</div>
+</header>
+
+<main>
+  <section class="hero">
+    <p class="eyebrow">Phishing Detection System</p>
+    <h1>Is that message <em>safe</em>?</h1>
+    <p class="lead">Paste a suspicious email, text or link. SafeSense inspects it with a rules engine and a machine-learning model, then shows you exactly why it looks safe, or not.</p>
+  </section>
+
+  <section class="console glass" id="console">
+    <div class="console-head">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <span class="mono">scan.input</span>
+      <div class="try">
+        <span>Try an example:</span>
+        <button type="button" data-sample="phishing">Phishing email</button>
+        <button type="button" data-sample="prize">Prize scam</button>
+        <button type="button" data-sample="legit">Normal email</button>
+      </div>
+    </div>
+    <textarea id="input" spellcheck="false" placeholder="Paste the full email, a text message, or just a link here…"></textarea>
+    <div class="console-foot">
+      <span class="privacy"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg> Messages are analysed in memory and never stored</span>
+      <div class="actions">
+        <button type="button" class="ghost" id="clear">Clear</button>
+        <button type="button" class="primary" id="scan"><span class="label">Scan message</span><span class="spin"></span></button>
+      </div>
+    </div>
+  </section>
+
+  <p class="error" id="error" role="alert" hidden></p>
+
+  <section class="result glass" id="result" hidden aria-live="polite">
+    <div class="gauge-wrap">
+      <div class="gauge" id="gauge">
+        <svg viewBox="0 0 200 200">
+          <circle class="track" cx="100" cy="100" r="86"/>
+          <circle class="arc" id="arc" cx="100" cy="100" r="86"/>
+        </svg>
+        <div class="gauge-text"><b id="score">0</b><span>/ 100</span></div>
+      </div>
+      <div class="verdict">
+        <span class="badge" id="badge">LOW RISK</span>
+        <h2 id="headline"></h2>
+        <p id="summary"></p>
+      </div>
+    </div>
+
+    <div class="meters">
+      <div class="meter">
+        <div class="meter-top"><span>Rules engine</span><b id="ruleVal">0</b></div>
+        <div class="bar"><i id="ruleBar"></i></div>
+      </div>
+      <div class="meter">
+        <div class="meter-top"><span>ML model confidence</span><b id="mlVal">0%</b></div>
+        <div class="bar"><i id="mlBar"></i></div>
+      </div>
+    </div>
+
+    <div id="signalsBox" class="signals" hidden>
+      <span>Words the model flagged</span>
+      <div id="signals"></div>
+    </div>
+
+    <h3 class="sec">What we found</h3>
+    <ul class="findings" id="findings"></ul>
+
+    <div id="urlsBox" hidden>
+      <h3 class="sec">Links in this message</h3>
+      <ul class="urls mono" id="urls"></ul>
+    </div>
+
+    <p class="note">SafeSense is a decision aid, not a guarantee. A low score does not prove a message is safe. If you are unsure, contact the sender using details you already trust.</p>
+  </section>
+
+  <section class="how" id="how">
+    <h3 class="sec center">How it works</h3>
+    <div class="cards">
+      <article class="glass card">
+        <span class="n">01</span>
+        <h4>Rules engine</h4>
+        <p>Checks links for look-alike spelling, fake brand names, hidden destinations and shorteners, and compares the sender name with the real address.</p>
+      </article>
+      <article class="glass card">
+        <span class="n">02</span>
+        <h4>ML classifier</h4>
+        <p>A scikit-learn model (TF-IDF + logistic regression) learned the wording patterns of phishing, such as urgency, threats and requests for credentials.</p>
+      </article>
+      <article class="glass card">
+        <span class="n">03</span>
+        <h4>Explained verdict</h4>
+        <p>Both scores are blended into one risk level, and every warning sign is listed in plain English with what to double-check.</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>SafeSense · Built with Python, Flask &amp; scikit-learn</span>
+</footer>
+
+<script>window.SAMPLES = {{ samples | tojson }};</script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

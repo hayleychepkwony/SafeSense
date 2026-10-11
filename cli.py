@@ -5,10 +5,10 @@ import argparse
 import json
 import sys
 
-from .checks import Report, analyze
+from .engine import scan
 
 LIMITS = (
-    "Note: SafeSense is a rule-based helper, not a guarantee. A LOW result does not "
+    "Note: SafeSense is a decision aid, not a guarantee. A LOW result does not "
     "prove a message is safe. When in doubt, contact the sender using a number or "
     "website you already trust."
 )
@@ -16,26 +16,28 @@ LIMITS = (
 LABELS = {"low": "LOW", "medium": "MEDIUM", "high": "HIGH"}
 
 
-def format_report(report: Report) -> str:
+def format_report(r: dict) -> str:
+    ml = "n/a" if r["ml_probability"] is None else f"{round(r['ml_probability'] * 100)}%"
     lines = [
         "SafeSense report",
         "=" * 16,
-        f"Risk level: {LABELS[report.level]}   (score {report.score}/100)",
+        f"Risk level: {LABELS[r['level']]}   (score {r['score']}/100)",
+        f"Rules engine: {r['rule_score']}/100   ML model confidence: {ml}",
         "",
     ]
-    if report.urls:
+    if r["urls"]:
         lines.append("Links found:")
-        lines.extend(f"  - {u}" for u in report.urls)
+        lines.extend(f"  - {u}" for u in r["urls"])
         lines.append("")
-    if report.findings:
+    if r["findings"]:
         lines.append("Why:")
-        for i, f in enumerate(report.findings, 1):
-            lines.append(f" {i}. [+{f.points}] {f.title}")
-            if f.evidence:
-                lines.append(f"      Evidence: {f.evidence}")
-            lines.append(f"      What to check: {f.advice}")
+        for i, f in enumerate(r["findings"], 1):
+            lines.append(f" {i}. [+{f['points']}] {f['title']}")
+            if f["evidence"]:
+                lines.append(f"      Evidence: {f['evidence']}")
+            lines.append(f"      What to check: {f['advice']}")
     else:
-        lines.append("No warning signs were found by the current rules.")
+        lines.append("No warning signs were found by the rules engine.")
     lines += ["", LIMITS]
     return "\n".join(lines)
 
@@ -59,8 +61,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Could not read input: {exc}", file=sys.stderr)
         return 2
 
-    report = analyze(text)
-    print(json.dumps(report.to_dict(), indent=2) if args.json else format_report(report))
+    report = scan(text)
+    print(json.dumps(report, indent=2) if args.json else format_report(report))
     return 0
 
 

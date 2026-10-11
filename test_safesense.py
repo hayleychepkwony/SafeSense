@@ -2,6 +2,8 @@ import os
 import unittest
 
 from safesense import analyze, analyze_url, registered_domain
+from safesense.engine import scan
+from safesense import ml
 
 SAMPLES = os.path.join(os.path.dirname(__file__), "..", "samples")
 
@@ -96,6 +98,41 @@ class SampleTests(unittest.TestCase):
 
     def test_score_is_capped(self):
         self.assertLessEqual(analyze(read("phishing_1_paypal.txt")).score, 100)
+
+
+class EngineTests(unittest.TestCase):
+    def test_model_separates_classes(self):
+        self.assertGreater(ml.phishing_probability("Your account will be suspended. Verify your password now."), 0.8)
+        self.assertLess(ml.phishing_probability("Hi, thanks for the call. Notes are in the shared folder."), 0.3)
+
+    def test_scan_levels(self):
+        self.assertEqual(scan(read("phishing_1_paypal.txt"))["level"], "high")
+        self.assertEqual(scan(read("phishing_2_prize.txt"))["level"], "high")
+        self.assertEqual(scan(read("legit_1_meeting.txt"))["level"], "low")
+
+    def test_scan_shape(self):
+        r = scan("http://bit.ly/x")
+        for key in ("score", "level", "rule_score", "ml_probability", "ml_signals", "urls", "findings"):
+            self.assertIn(key, r)
+        self.assertTrue(0 <= r["score"] <= 100)
+
+
+class ApiTests(unittest.TestCase):
+    def setUp(self):
+        import app as flask_app
+        self.client = flask_app.app.test_client()
+
+    def test_home_page(self):
+        self.assertEqual(self.client.get("/").status_code, 200)
+
+    def test_analyze_ok(self):
+        res = self.client.post("/api/analyze", json={"text": read("phishing_1_paypal.txt")})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.get_json()["level"], "high")
+
+    def test_analyze_rejects_empty(self):
+        self.assertEqual(self.client.post("/api/analyze", json={"text": "  "}).status_code, 400)
+        self.assertEqual(self.client.post("/api/analyze", data="nope").status_code, 400)
 
 
 if __name__ == "__main__":
